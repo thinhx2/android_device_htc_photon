@@ -1,0 +1,154 @@
+import init.msm7x27.usb.rc
+
+on boot
+    mount debugfs /sys/kernel/debug /sys/kernel/debug
+
+    mkdir /data/misc/wifi 0770 wifi wifi
+    mkdir /data/misc/wifi/sockets 0770 wifi wifi
+    mkdir /data/misc/dhcp 0770 dhcp dhcp
+    chown dhcp dhcp /data/misc/dhcp
+
+    # bluetooth power up/down interface
+    chown bluetooth bluetooth /sys/class/rfkill/rfkill0/type
+    chown bluetooth bluetooth /sys/class/rfkill/rfkill0/state
+    chmod 0660 /sys/class/rfkill/rfkill0/state
+
+    # bluetooth MAC address programming
+    chown bluetooth bluetooth /sys/module/board_liberty/parameters/bdaddr
+    setprop ro.bt.bdaddr_path /sys/module/board_liberty/parameters/bdaddr
+
+    # Permissions for Liblights.
+    chown system system /sys/class/leds/green/brightness
+    chown system system /sys/class/leds/green/blink
+    chown system system /sys/class/leds/amber/brightness
+    chown system system /sys/class/leds/amber/blink
+    chown system system /sys/class/leds/button-backlight/brightness
+    chown system system /sys/class/leds/lcd-backlight/brightness
+    chown system system /sys/class/leds/lcd-backlight/auto
+
+on init
+    #sdcard
+    mkdir /mnt/media_rw/sdcard0 0700 media_rw media_rw
+    mkdir /storage/sdcard0 0700 root root
+
+    export EXTERNAL_STORAGE /storage/sdcard0
+
+    # for backwards compatibility
+    symlink /storage/sdcard0 /mnt/sdcard
+    symlink /storage/sdcard0 /sdcard
+
+    #sd-ext
+    mkdir /sd-ext 0771 system system
+    export SD_EXT_DIRECTORY /sd-ext
+
+    mount rootfs rootfs / remount
+    mkdir /app-cache 01777 system system
+    mount tmpfs tmpfs /app-cache size=8m
+    mkdir /data/app-cache 0771 system system
+    mount rootfs rootfs / ro remount
+
+    mkdir /data/misc/wifi 0770 wifi wifi
+    mkdir /data/misc/wifi/sockets 0770 wifi wifi
+    mkdir /data/misc/dhcp 0770 dhcp dhcp
+    chown dhcp dhcp /data/misc/dhcp
+    mkdir /data/misc/hotspot 0770 system hotspot
+
+    chown system system /sys/module/serial/parameters/modem_enabled
+    chown system system /dev/ttyHSUSB0
+    chown system system /dev/smd9
+    chown radio radio /sys/module/msm_flashlight/parameters/phone_status
+    # chown system system /sys/class/leds/wimax/brightness
+
+    # For FM radio/music by Welly_Fang's request
+    mkdir /data/data/shared
+    chmod 0777 /data/data/shared
+
+    # zRAM
+    write /proc/sys/vm/page-cluster 0
+
+    # performance tweaks for flash
+    write /sys/block/mtdblock3/bdi/read_ahead_kb 4
+    write /sys/block/mtdblock4/bdi/read_ahead_kb 4
+    write /sys/block/mtdblock5/bdi/read_ahead_kb 4
+
+on fs
+    # mount partitions
+    mount yaffs2 mtd@system /system
+    mount yaffs2 mtd@system /system ro remount
+    mount yaffs2 mtd@userdata /data nosuid nodev
+    mount yaffs2 mtd@cache /cache nosuid nodev
+
+    # zRAM
+    swapon_all /fstab.photon
+
+service wpa_supplicant /system/bin/logwrapper /system/bin/wpa_supplicant \
+    -Dwext -iwlan0 -c/data/misc/wifi/wpa_supplicant.conf \
+    -e/data/misc/wifi/entropy.bin \
+    -O/data/misc/wifi/sockets -g@android:wpa_wlan0
+    # we will start as root and wpa_supplicant will switch to user wifi
+    # after setting up the capabilities required for WEXT
+    # user wifi
+    # group wifi inet keystore
+    class main
+    socket wpa_wlan0 dgram 660 wifi wifi
+    disabled
+    oneshot
+
+service dhcpcd_wlan0 /system/bin/dhcpcd -ABKL
+    class main
+    disabled
+    oneshot
+
+service iprenew_wlan0 /system/bin/dhcpcd -n
+    class main
+    disabled
+    oneshot
+
+service modem /system/xbin/wireless_modem
+    user system
+    group system radio
+    disabled
+
+on property:service.modem.enable=1
+    start modem
+
+on property:service.modem.enable=0
+    stop modem
+
+on property:init.svc.wpa_supplicant=stopped
+    stop dhcpcd_wlan0
+
+# compass/accelerometer daemon
+service akmd /system/bin/akmd
+    class main
+    user compass
+    group compass misc input
+
+# Compcache - handle at boot
+service compcache /system/bin/handle_compcache
+    class main
+    user root
+    group root
+    disabled
+
+on property:persist.service.zram=10
+    start compcache
+
+on property:persist.service.zram=18
+    start compcache
+
+on property:persist.service.zram=26
+    start compcache
+
+service srv_ser2net /system/bin/ser2net -n
+    disabled
+
+on property:service.ser2net.enable=1
+    start srv_ser2net
+
+on property:service.ser2net.enable=0
+    stop srv_ser2net
+
+service fuse_sdcard0 /system/bin/sdcard -u 1023 -g 1023 -d /mnt/media_rw/sdcard0 /storage/sdcard0
+    class late_start
+    disabled

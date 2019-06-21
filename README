@@ -1,0 +1,80 @@
+Device configuration for the HTC Liberty (aka HTC Aria/Gratia)
+
+Copyright (C) 2011 The CyanogenMod Project
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+------------------------------------------------------------------
+
+
+* Description
+
+  This repository is for CM9 on HTC liberty.
+  It is still a work in progress.
+
+
+* How To Build CM9 for HTC liberty
+
+  Make a workspace
+
+  $ cd ~
+  $ mkdir android
+  $ cd android
+  $ mkdir system
+  $ cd system
+
+
+  Do repo init & sync
+
+  $ repo init -u git://github.com/WinSuk/android.git -b ics
+  $ repo sync -j20
+
+  Setup vendor
+
+  $ cd vendor/cm/
+  $ ./get-prebuilts
+
+
+  Setup device
+
+  Connect phone to usb abd make sure debugging is avaliable for adb pulls
+
+  $ cd ../../device/liberty
+  $ ./extract-files.sh # this pulls files from working liberty with most variants of shipped HTC ROM
+  $ cd ../../..
+
+
+  Setup environment
+
+  $ source build/envsetup.sh
+  $ lunch
+  (select cm_liberty-userdebug)
+
+
+  Build CM9
+
+  $ make otapackage -j4
+
+
+* Credit/Thanks
+
+    Cyanogen
+    CyanogenMod team
+
+  CM6 (Froyo) & CM7 (Gingerbread):
+    attn1
+    jznomoney
+
+  CM9 (Ice Cream Sandwich) & CM10 (Jelly Bean):
+    Droste
+    gladiac
+    munjeni
+    s0be
+    WinSuk
+
+----
+EOF
